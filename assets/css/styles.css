@@ -91,6 +91,17 @@ body {
   color: var(--text-muted);
 }
 
+.howto-link {
+  margin-top: 0.4rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-main-strong);
+  text-decoration: underline;
+  font: 600 0.92rem/1 "Outfit", sans-serif;
+  cursor: pointer;
+}
+
 .lang-switch {
   margin-top: 1rem;
   display: inline-flex;
@@ -332,6 +343,43 @@ body {
 
 .download-note {
   margin: 0 0 0.5rem;
+  color: var(--text-muted);
+}
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.modal-card {
+  position: relative;
+  width: min(520px, 92vw);
+  margin: 10vh auto 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: #2a2932;
+  box-shadow: var(--shadow-soft);
+  padding: 1rem;
+}
+
+.modal-card h2 {
+  margin: 0 0 0.6rem;
+  font-family: "Syne", "Outfit", sans-serif;
+}
+
+.modal-card p {
+  margin: 0 0 0.55rem;
   color: var(--text-muted);
 }
 

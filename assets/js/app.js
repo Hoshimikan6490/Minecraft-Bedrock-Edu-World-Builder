@@ -30,6 +30,10 @@ const nodes = {
   downloadBtn: document.getElementById("download-btn"),
   downloadBox: document.getElementById("download-box"),
   downloadNote: document.getElementById("download-note"),
+  howtoOpen: document.getElementById("howto-open"),
+  howtoClose: document.getElementById("howto-close"),
+  howtoModal: document.getElementById("howto-modal"),
+  howtoOverlay: document.getElementById("howto-overlay"),
   statusSummary: document.getElementById("status-summary"),
   statusLog: document.getElementById("status-log"),
   langButtons: Array.from(document.querySelectorAll(".lang-btn"))
@@ -88,6 +92,21 @@ function bindEvents() {
       return;
     }
     downloadBlob(state.generatedBlob, state.generatedName);
+  });
+
+  nodes.howtoOpen.addEventListener("click", () => {
+    showHowtoModal();
+  });
+  nodes.howtoClose.addEventListener("click", () => {
+    hideHowtoModal();
+  });
+  nodes.howtoOverlay.addEventListener("click", () => {
+    hideHowtoModal();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      hideHowtoModal();
+    }
   });
 
   for (const button of nodes.langButtons) {
@@ -903,6 +922,16 @@ function clearGeneratedOutput() {
   state.generatedName = "";
   nodes.downloadBox.hidden = true;
   nodes.downloadNote.textContent = "";
+}
+
+function showHowtoModal() {
+  nodes.howtoModal.hidden = false;
+  nodes.howtoModal.setAttribute("aria-hidden", "false");
+}
+
+function hideHowtoModal() {
+  nodes.howtoModal.hidden = true;
+  nodes.howtoModal.setAttribute("aria-hidden", "true");
 }
 
 function mergePackFiles(existingFiles, newFiles) {

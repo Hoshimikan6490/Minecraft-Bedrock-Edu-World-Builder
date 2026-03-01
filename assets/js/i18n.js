@@ -1,6 +1,12 @@
 export const I18N = {
   es: {
     "app.subtitle": "Sube tu mundo y tus packs para crear un nuevo .mcworld listo para compartir.",
+    "help.open": "Como usar",
+    "help.title": "Como usar esta herramienta",
+    "help.line1": "Sirve para combinar tu .mcworld con packs y addons, para compartir un solo archivo completo.",
+    "help.line2": "1) Sube tu .mcworld. 2) Sube tus .mcpack/.mcaddon. 3) Pulsa Crear nuevo .mcworld.",
+    "help.line3": "Cuando termine, pulsa Descargar .mcworld y listo.",
+    "help.close": "Entendido",
     "upload.title": "Archivos",
     "upload.worldLabel": "Mundo base (.mcworld)",
     "upload.worldHelp": "Selecciona un archivo .mcworld.",
@@ -63,6 +69,12 @@ export const I18N = {
   },
   en: {
     "app.subtitle": "Upload your world and packs to create a new .mcworld ready to share.",
+    "help.open": "How to use",
+    "help.title": "How to use this tool",
+    "help.line1": "It combines your .mcworld with packs and addons so you can share one complete file.",
+    "help.line2": "1) Upload your .mcworld. 2) Upload your .mcpack/.mcaddon files. 3) Click Create new .mcworld.",
+    "help.line3": "When it finishes, click Download .mcworld and done.",
+    "help.close": "Got it",
     "upload.title": "Files",
     "upload.worldLabel": "Base world (.mcworld)",
     "upload.worldHelp": "Select one .mcworld file.",
