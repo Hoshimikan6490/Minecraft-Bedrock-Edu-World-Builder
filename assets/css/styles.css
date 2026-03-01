@@ -78,6 +78,19 @@ body {
   animation: riseIn 480ms ease-out both;
 }
 
+.hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.hero-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
 .hero-title {
   margin: 0;
   font-family: "Syne", "Outfit", sans-serif;

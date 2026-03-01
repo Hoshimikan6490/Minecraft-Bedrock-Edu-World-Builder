@@ -84,7 +84,7 @@ export const I18N = {
     "upload.worldHelp": "Select one .mcworld file.",
     "upload.packsLabel": "Packs and addons",
     "upload.packsHelp": "You can upload multiple .mcpack and/or .mcaddon files.",
-    "upload.chooseWorld": "Choose file",
+    "upload.chooseWorld": "Add files",
     "upload.choosePacks": "Add files",
     "upload.noWorldChosen": "No file selected",
     "upload.noPacksChosen": "No file selected",
