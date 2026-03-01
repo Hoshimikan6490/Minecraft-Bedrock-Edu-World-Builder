@@ -10,17 +10,26 @@ const state = {
   lang: detectInitialLang(),
   worldFile: null,
   packFiles: [],
-  busy: false
+  busy: false,
+  generatedBlob: null,
+  generatedName: ""
 };
 
 const nodes = {
   worldInput: document.getElementById("world-input"),
   packsInput: document.getElementById("packs-input"),
+  worldPickerBtn: document.getElementById("world-picker-btn"),
+  packsPickerBtn: document.getElementById("packs-picker-btn"),
+  worldPickerText: document.getElementById("world-picker-text"),
+  packsPickerText: document.getElementById("packs-picker-text"),
   worldInfo: document.getElementById("world-file-info"),
   packsInfo: document.getElementById("packs-file-info"),
   limitsCopy: document.getElementById("limits-copy"),
   compileBtn: document.getElementById("compile-btn"),
   resetBtn: document.getElementById("reset-btn"),
+  downloadBtn: document.getElementById("download-btn"),
+  downloadBox: document.getElementById("download-box"),
+  downloadNote: document.getElementById("download-note"),
   statusSummary: document.getElementById("status-summary"),
   statusLog: document.getElementById("status-log"),
   langButtons: Array.from(document.querySelectorAll(".lang-btn"))
@@ -42,16 +51,26 @@ function init() {
 }
 
 function bindEvents() {
+  nodes.worldPickerBtn.addEventListener("click", () => {
+    nodes.worldInput.click();
+  });
+
   nodes.worldInput.addEventListener("change", () => {
     state.worldFile = nodes.worldInput.files && nodes.worldInput.files[0] ? nodes.worldInput.files[0] : null;
+    clearGeneratedOutput();
     refreshSelectedFiles();
     updateActionState();
+  });
+
+  nodes.packsPickerBtn.addEventListener("click", () => {
+    nodes.packsInput.click();
   });
 
   nodes.packsInput.addEventListener("change", () => {
     const newFiles = nodes.packsInput.files ? Array.from(nodes.packsInput.files) : [];
     state.packFiles = mergePackFiles(state.packFiles, newFiles);
     nodes.packsInput.value = "";
+    clearGeneratedOutput();
     refreshSelectedFiles();
     updateActionState();
   });
@@ -62,6 +81,13 @@ function bindEvents() {
 
   nodes.resetBtn.addEventListener("click", () => {
     resetForm();
+  });
+
+  nodes.downloadBtn.addEventListener("click", () => {
+    if (!state.generatedBlob || !state.generatedName) {
+      return;
+    }
+    downloadBlob(state.generatedBlob, state.generatedName);
   });
 
   for (const button of nodes.langButtons) {
@@ -102,6 +128,15 @@ function applyI18n() {
     worldMb: LIMITS.maxWorldBytes / MB,
     packsMb: LIMITS.maxPacksBytes / MB
   });
+  if (!state.worldFile) {
+    nodes.worldPickerText.textContent = t("upload.noWorldChosen");
+  }
+  if (state.packFiles.length === 0) {
+    nodes.packsPickerText.textContent = t("upload.noPacksChosen");
+  }
+  if (state.generatedName) {
+    nodes.downloadNote.textContent = t("status.downloadReady", { name: state.generatedName });
+  }
 
   for (const button of nodes.langButtons) {
     button.setAttribute("aria-pressed", String(button.dataset.lang === state.lang));
@@ -110,21 +145,25 @@ function applyI18n() {
 
 function refreshSelectedFiles() {
   if (state.worldFile) {
+    nodes.worldPickerText.textContent = state.worldFile.name;
     nodes.worldInfo.textContent = t("status.worldFileSelected", {
       name: state.worldFile.name,
       size: formatBytes(state.worldFile.size)
     });
   } else {
+    nodes.worldPickerText.textContent = t("upload.noWorldChosen");
     nodes.worldInfo.textContent = t("status.worldFileMissing");
   }
 
   if (state.packFiles.length > 0) {
+    nodes.packsPickerText.textContent = t("upload.packsChosenInline", { count: state.packFiles.length });
     const total = state.packFiles.reduce((sum, file) => sum + file.size, 0);
     nodes.packsInfo.textContent = t("status.packsSelected", {
       count: state.packFiles.length,
       size: formatBytes(total)
     });
   } else {
+    nodes.packsPickerText.textContent = t("upload.noPacksChosen");
     nodes.packsInfo.textContent = t("status.packsMissing");
   }
 }
@@ -139,7 +178,7 @@ function setStatus(kind, message) {
   nodes.statusSummary.className = "status-summary";
   if (kind === "error") {
     nodes.statusSummary.classList.add("error");
-    nodes.statusSummary.textContent = `${t("status.error")} ${message}`;
+    nodes.statusSummary.textContent = message;
     return;
   }
   if (kind === "success") {
@@ -159,21 +198,14 @@ function clearLog() {
 }
 
 function appendLog(message, level = "info") {
-  const li = document.createElement("li");
-  li.textContent = message;
-  if (level === "warn") {
-    li.classList.add("warn");
-  } else if (level === "error") {
-    li.classList.add("error");
-  } else if (level === "ok") {
-    li.classList.add("ok");
-  }
-  nodes.statusLog.appendChild(li);
+  void message;
+  void level;
 }
 
 function resetForm() {
   state.worldFile = null;
   state.packFiles = [];
+  clearGeneratedOutput();
   nodes.worldInput.value = "";
   nodes.packsInput.value = "";
   clearLog();
@@ -190,6 +222,7 @@ async function compileWorld() {
   try {
     state.busy = true;
     updateActionState();
+    clearGeneratedOutput();
     clearLog();
     setStatus("processing");
     appendLog(t("log.start"));
@@ -241,16 +274,13 @@ async function compileWorld() {
       }
     );
 
-    downloadBlob(blob, outputName);
-    appendLog(t("log.finished", { name: outputName }), "ok");
-    setStatus("success", t("success.summary", {
-      name: outputName,
-      added: included.length,
-      skipped: skipped.length
-    }));
+    state.generatedBlob = blob;
+    state.generatedName = outputName;
+    nodes.downloadNote.textContent = t("status.downloadReady", { name: outputName });
+    nodes.downloadBox.hidden = false;
+    setStatus("success", t("success.simple"));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    appendLog(message, "error");
     setStatus("error", message);
   } finally {
     state.busy = false;
@@ -866,6 +896,13 @@ function formatBytes(bytes) {
     return `${(bytes / 1024).toFixed(1)} KB`;
   }
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function clearGeneratedOutput() {
+  state.generatedBlob = null;
+  state.generatedName = "";
+  nodes.downloadBox.hidden = true;
+  nodes.downloadNote.textContent = "";
 }
 
 function mergePackFiles(existingFiles, newFiles) {

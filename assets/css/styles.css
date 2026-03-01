@@ -32,10 +32,7 @@ body {
   min-height: 100vh;
   font-family: "Outfit", "Segoe UI", sans-serif;
   color: var(--text-main);
-  background:
-    radial-gradient(circle at 14% 22%, rgba(84, 100, 255, 0.22), transparent 43%),
-    radial-gradient(circle at 88% 9%, rgba(84, 100, 255, 0.14), transparent 38%),
-    linear-gradient(145deg, #222127 0%, #1b1a20 100%);
+  background: linear-gradient(145deg, #222127 0%, #1b1a20 100%);
   line-height: 1.4;
   position: relative;
   overflow-x: hidden;
@@ -47,39 +44,25 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: -2;
-  opacity: 0.2;
+  opacity: 0.14;
   background:
-    repeating-linear-gradient(
-      0deg,
-      transparent 0,
-      transparent 23px,
-      rgba(247, 247, 247, 0.06) 23px,
-      rgba(247, 247, 247, 0.06) 24px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 23px,
-      rgba(247, 247, 247, 0.06) 23px,
-      rgba(247, 247, 247, 0.06) 24px
-    );
+    linear-gradient(30deg, rgba(255, 255, 255, 0.08) 12%, transparent 12.5%, transparent 87%, rgba(255, 255, 255, 0.08) 87.5%, rgba(255, 255, 255, 0.08)),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.08) 12%, transparent 12.5%, transparent 87%, rgba(255, 255, 255, 0.08) 87.5%, rgba(255, 255, 255, 0.08)),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 2%, transparent 2.5%, transparent 97%, rgba(255, 255, 255, 0.05) 97.5%, rgba(255, 255, 255, 0.05));
+  background-size: 80px 140px;
+  background-position: 0 0, 0 0, 40px 70px;
 }
 
 body::after {
   content: "";
   position: fixed;
-  inset: auto 0 0 0;
-  height: 32vh;
+  inset: 0;
   pointer-events: none;
   z-index: -1;
-  opacity: 0.28;
+  opacity: 0.08;
   background:
-    linear-gradient(to top, rgba(34, 69, 42, 0.9) 0 18%, transparent 48%),
-    repeating-linear-gradient(
-      90deg,
-      rgba(88, 65, 40, 0.7) 0 32px,
-      rgba(79, 58, 35, 0.7) 32px 64px
-    );
+    radial-gradient(circle at 14% 22%, rgba(84, 100, 255, 0.28), transparent 43%),
+    radial-gradient(circle at 88% 9%, rgba(84, 100, 255, 0.18), transparent 38%);
 }
 
 .bg-shape {
@@ -196,33 +179,42 @@ body::after {
 
 .field input[type="file"] {
   width: 100%;
+}
+
+.file-picker {
   border: 1px dashed rgba(84, 100, 255, 0.5);
   border-radius: var(--radius-md);
   background: var(--bg-card-strong);
-  padding: 0.6rem;
-  color: var(--text-main);
+  padding: 0.55rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
 }
 
-.field input[type="file"]::file-selector-button {
-  border: 0;
-  border-radius: 10px;
-  padding: 0.5rem 0.75rem;
-  margin-right: 0.6rem;
-  background: linear-gradient(150deg, var(--accent-main), #3949db);
-  color: #fff;
-  font: 600 0.86rem/1 "Outfit", sans-serif;
-  cursor: pointer;
+.file-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-.field input[type="file"]::-webkit-file-upload-button {
-  border: 0;
-  border-radius: 10px;
-  padding: 0.5rem 0.75rem;
-  margin-right: 0.6rem;
+.btn-file {
+  padding: 0.58rem 0.8rem;
+  font-size: 0.86rem;
   background: linear-gradient(150deg, var(--accent-main), #3949db);
   color: #fff;
-  font: 600 0.86rem/1 "Outfit", sans-serif;
-  cursor: pointer;
+  white-space: nowrap;
+}
+
+.file-picker-text {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .field-help {
@@ -318,11 +310,7 @@ body::after {
 }
 
 .status-log {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.42rem;
+  display: none;
 }
 
 .status-log li {
@@ -356,6 +344,16 @@ body::after {
   color: var(--text-muted);
   font-size: 0.88rem;
   text-align: center;
+}
+
+.download-box {
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+}
+
+.download-note {
+  margin: 0 0 0.5rem;
+  color: var(--text-muted);
 }
 
 .footer a {
