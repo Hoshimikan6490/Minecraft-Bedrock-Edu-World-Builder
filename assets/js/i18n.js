@@ -1,6 +1,6 @@
 export const I18N = {
   es: {
-    "app.subtitle": "Sube tu mundo y tus packs para crear un nuevo .mcworld listo para compartir.",
+    "app.subtitle": "Crea un archivo .mcworld con packs .mcpack/.mcaddon incluidos para Minecraft Bedrock y Education.",
     "help.open": "Cómo usar",
     "help.title": "Cómo usar esta herramienta",
     "help.intro": "Esta herramienta une tu mundo y tus packs en un solo archivo .mcworld para que compartirlo sea mucho más fácil.",
