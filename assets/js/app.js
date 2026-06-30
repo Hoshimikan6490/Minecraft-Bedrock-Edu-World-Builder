@@ -10,6 +10,7 @@ const state = {
   lang: detectInitialLang(),
   worldFile: null,
   packFiles: [],
+  cleanExistingPacks: true,
   busy: false,
   generatedBlob: null,
   generatedName: ""
@@ -22,6 +23,7 @@ const nodes = {
   packsPickerBtn: document.getElementById("packs-picker-btn"),
   worldPickerText: document.getElementById("world-picker-text"),
   packsPickerText: document.getElementById("packs-picker-text"),
+  cleanExistingPacks: document.getElementById("clean-existing-packs"),
   worldInfo: document.getElementById("world-file-info"),
   packsInfo: document.getElementById("packs-file-info"),
   limitsCopy: document.getElementById("limits-copy"),
@@ -77,6 +79,11 @@ function bindEvents() {
     clearGeneratedOutput();
     refreshSelectedFiles();
     updateActionState();
+  });
+
+  nodes.cleanExistingPacks.addEventListener("change", () => {
+    state.cleanExistingPacks = nodes.cleanExistingPacks.checked;
+    clearGeneratedOutput();
   });
 
   nodes.compileBtn.addEventListener("click", () => {
@@ -191,6 +198,7 @@ function updateActionState() {
   const hasInputs = Boolean(state.worldFile) && state.packFiles.length > 0;
   nodes.compileBtn.disabled = state.busy || !hasInputs;
   nodes.resetBtn.disabled = state.busy;
+  nodes.cleanExistingPacks.disabled = state.busy;
 }
 
 function setStatus(kind, message) {
@@ -217,16 +225,22 @@ function clearLog() {
 }
 
 function appendLog(message, level = "info") {
-  void message;
-  void level;
+  const item = document.createElement("li");
+  item.textContent = message;
+  if (level !== "info") {
+    item.classList.add(level);
+  }
+  nodes.statusLog.appendChild(item);
 }
 
 function resetForm() {
   state.worldFile = null;
   state.packFiles = [];
+  state.cleanExistingPacks = true;
   clearGeneratedOutput();
   nodes.worldInput.value = "";
   nodes.packsInput.value = "";
+  nodes.cleanExistingPacks.checked = true;
   clearLog();
   setStatus("idle", t("status.idle"));
   refreshSelectedFiles();
@@ -250,12 +264,16 @@ async function compileWorld() {
     appendLog(t("log.readWorld", { name: state.worldFile.name }));
     const worldZip = await loadZipFromFile(state.worldFile);
     const worldState = await loadWorldState(worldZip);
+    if (state.cleanExistingPacks) {
+      appendLog(t("log.cleanExistingPacks"));
+      cleanExistingWorldPacks(worldZip, worldState);
+    }
 
     appendLog(t("log.readPacks"));
     const packs = await extractPacks(state.packFiles);
     appendLog(t("log.packsFound", { count: packs.length }));
 
-    const { included, skipped } = filterDuplicatedPacks(packs, worldState.existingUuids);
+    const { included, skipped } = filterDuplicatedPacks(packs, worldState.embeddedUuids);
     for (const skip of skipped) {
       appendLog(t("log.skipDuplicate", { name: skip.displayName }), "warn");
     }
@@ -282,8 +300,8 @@ async function compileWorld() {
     const outputName = makeCompiledName(state.worldFile.name);
     appendLog(t("log.generating"));
     let lastLoggedProgress = -1;
-    const blob = await worldZip.generateAsync(
-      { type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } },
+    const bytes = await worldZip.generateAsync(
+      { type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 } },
       (metadata) => {
         const rounded = Math.floor(metadata.percent);
         if (rounded >= 0 && rounded % 10 === 0 && rounded !== lastLoggedProgress) {
@@ -292,11 +310,19 @@ async function compileWorld() {
         }
       }
     );
+    if (!bytes || bytes.byteLength === 0) {
+      throw new Error(t("error.emptyGeneratedWorld"));
+    }
+    const blob = new Blob([bytes], { type: "application/zip" });
+    if (blob.size === 0) {
+      throw new Error(t("error.emptyGeneratedWorld"));
+    }
 
     state.generatedBlob = blob;
     state.generatedName = outputName;
     nodes.downloadNote.textContent = t("status.downloadReady");
     nodes.downloadBox.hidden = false;
+    appendLog(t("log.finished", { name: outputName }), "ok");
     setStatus("success", t("success.simple"));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -338,6 +364,9 @@ function validateInputs() {
 async function loadZipFromFile(file) {
   try {
     const data = await file.arrayBuffer();
+    if (!data || data.byteLength === 0) {
+      throw new Error("empty-file");
+    }
     return await globalThis.JSZip.loadAsync(data);
   } catch {
     throw new Error(t("error.badZip", { name: file.name }));
@@ -345,18 +374,21 @@ async function loadZipFromFile(file) {
 }
 
 async function loadWorldState(worldZip) {
+  validateWorldZipContent(worldZip);
+
   worldZip.folder("behavior_packs");
   worldZip.folder("resource_packs");
 
   const behaviorRefs = await readWorldReferenceFile(worldZip, "world_behavior_packs.json");
   const resourceRefs = await readWorldReferenceFile(worldZip, "world_resource_packs.json");
 
-  const existingUuids = new Set();
+  const referencedUuids = new Set();
   for (const ref of [...behaviorRefs, ...resourceRefs]) {
     if (ref && typeof ref.pack_id === "string") {
-      existingUuids.add(ref.pack_id.toLowerCase());
+      referencedUuids.add(ref.pack_id.toLowerCase());
     }
   }
+  const embeddedUuids = await collectEmbeddedPackUuids(worldZip);
 
   const nextBp = findNextPackIndex(worldZip, "behavior");
   const nextRp = findNextPackIndex(worldZip, "resource");
@@ -366,13 +398,84 @@ async function loadWorldState(worldZip) {
   return {
     behaviorRefs,
     resourceRefs,
-    existingUuids,
+    referencedUuids,
+    embeddedUuids,
     nextBp,
     nextRp,
     usedBehaviorFolders,
     usedResourceFolders,
     folderWarnings: []
   };
+}
+
+async function collectEmbeddedPackUuids(worldZip) {
+  const embeddedUuids = new Set();
+  const manifests = Object.values(worldZip.files).filter((file) => {
+    if (file.dir) {
+      return false;
+    }
+    const path = normalizePackPath(file.name).toLowerCase();
+    return (
+      path.startsWith("behavior_packs/") ||
+      path.startsWith("resource_packs/")
+    ) && path.endsWith("/manifest.json");
+  });
+
+  for (const manifestFile of manifests) {
+    try {
+      const manifest = JSON.parse(await manifestFile.async("string"));
+      const uuid = manifest?.header?.uuid;
+      if (typeof uuid === "string" && uuid.trim()) {
+        embeddedUuids.add(uuid.trim().toLowerCase());
+      }
+    } catch {
+      // Invalid existing embedded packs should not block adding valid new packs.
+    }
+  }
+
+  return embeddedUuids;
+}
+
+function validateWorldZipContent(worldZip) {
+  const fileEntries = Object.values(worldZip.files).filter((entry) => !entry.dir);
+  if (fileEntries.length === 0) {
+    throw new Error(t("error.emptyWorld"));
+  }
+
+  const hasLevelDat = fileEntries.some((entry) => normalizePackPath(entry.name).toLowerCase() === "level.dat");
+  if (!hasLevelDat) {
+    throw new Error(t("error.worldMissingLevel"));
+  }
+}
+
+function cleanExistingWorldPacks(worldZip, worldState) {
+  const packRoots = ["behavior_packs/", "resource_packs/"];
+  const namesToRemove = Object.entries(worldZip.files).filter(([name, entry]) => {
+    const normalized = normalizePackPath(name);
+    const normalizedWithSlash = entry.dir ? `${normalized}/` : normalized;
+    return packRoots.some((root) => normalizedWithSlash.toLowerCase().startsWith(root));
+  }).map(([name]) => name);
+
+  for (const name of namesToRemove) {
+    if (worldZip.files[name]) {
+      worldZip.remove(name);
+    }
+  }
+
+  worldZip.remove("world_behavior_packs.json");
+  worldZip.remove("world_resource_packs.json");
+  worldZip.folder("behavior_packs");
+  worldZip.folder("resource_packs");
+
+  worldState.behaviorRefs = [];
+  worldState.resourceRefs = [];
+  worldState.referencedUuids = new Set();
+  worldState.embeddedUuids = new Set();
+  worldState.nextBp = 0;
+  worldState.nextRp = 0;
+  worldState.usedBehaviorFolders = new Set();
+  worldState.usedResourceFolders = new Set();
+  worldState.folderWarnings = [];
 }
 
 async function readWorldReferenceFile(worldZip, filename) {
@@ -696,9 +799,9 @@ function extractRootFolderName(root) {
   return normalized;
 }
 
-function filterDuplicatedPacks(packs, existingUuids) {
+function filterDuplicatedPacks(packs, embeddedUuids) {
   const seen = new Set();
-  for (const existing of existingUuids.values()) {
+  for (const existing of embeddedUuids.values()) {
     seen.add(existing.toLowerCase());
   }
 
@@ -821,15 +924,8 @@ function placePacksInWorld(worldZip, worldState, packs) {
       worldZip.file(`${fullPrefix}/${cleanRel}`, content);
     }
 
-    const ref = {
-      pack_id: pack.headerUuid,
-      version: pack.headerVersion.slice()
-    };
-    if (pack.type === "behavior") {
-      worldState.behaviorRefs.push(ref);
-    } else {
-      worldState.resourceRefs.push(ref);
-    }
+    addWorldPackReference(worldState, pack);
+    worldState.embeddedUuids.add(pack.headerUuid.toLowerCase());
 
     placed.push({
       displayName: pack.displayName,
@@ -838,6 +934,24 @@ function placePacksInWorld(worldZip, worldState, packs) {
   }
 
   return placed;
+}
+
+function addWorldPackReference(worldState, pack) {
+  const refs = pack.type === "behavior" ? worldState.behaviorRefs : worldState.resourceRefs;
+  const key = pack.headerUuid.toLowerCase();
+  const alreadyReferenced = refs.some((ref) => (
+    ref &&
+    typeof ref.pack_id === "string" &&
+    ref.pack_id.toLowerCase() === key
+  ));
+  if (alreadyReferenced) {
+    return;
+  }
+  refs.push({
+    pack_id: pack.headerUuid,
+    version: pack.headerVersion.slice()
+  });
+  worldState.referencedUuids.add(key);
 }
 
 function chooseTargetFolderName(pack, worldState) {
